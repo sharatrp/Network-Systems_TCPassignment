@@ -6,17 +6,19 @@
 #include <stdlib.h>
 #include <errno.h>
 
-//#define Hardcode_on
+//#include <ws.conf>
 
-#ifdef Hordcode_on
-#define Port_addr 8081
+#define Hardcode_on
+
+#ifndef Hordcode_on
+int Port_addr = 8000;
 #endif
 
 int childsocket_no = 0;
 
 int main(int argc , char *argv[])
 {
-	#ifndef Hardcode_on
+	#ifdef Hardcode_on
 	int Port_addr = atoi(argv[1]);
 	#endif
 	int socket_desc , client_sock , c , read_size;
@@ -132,7 +134,8 @@ int main(int argc , char *argv[])
 				{
 					int errsv = errno;
 					printf("File Pointer: '%p'\n",fptr);
-					printf("fopen failed. Error number: %d\n", errsv);				}
+					printf("fopen failed. Error number: %d\n", errsv);				
+				}
 			}
 			else 
 			{
@@ -146,12 +149,12 @@ int main(int argc , char *argv[])
 					
 					printf("Child Socket: %d.File Pointer: '%p'\n", childsocket_no,fptr);
 					fseek(fptr, 0, SEEK_END);
-					int filesize = ftell(fptr);
+					long int filesize = ftell(fptr);
 					fseek(fptr, 0, SEEK_SET);
 
-					printf("Child Socket: %d.file Size: %d\n", childsocket_no, filesize);
+					printf("Child Socket: %d.file Size: %ld\n", childsocket_no, filesize);
 
-					int sentSize = 0;
+					unsigned long int sentSize = 0;
 
 					char statusLine[256];
 					//bzero(statusLine, sizeof(statusLine));
@@ -159,23 +162,35 @@ int main(int argc , char *argv[])
 					write(client_sock, statusLine, strlen(statusLine));
 					printf("Child Socket: %d.statusLine : '%s'", childsocket_no, statusLine);
 
+					// size_t elements = (sizeof(writeBuffer))/(sizeof(char));
+					int p=0;
+
 					while (sentSize < filesize)
 					{
-						memset(writeBuffer, '\0', sizeof(writeBuffer));
-						//Receive a message from client
-						fread(writeBuffer, sizeof(char), sizeof(writeBuffer), fptr);
-						write(client_sock, writeBuffer, strlen(writeBuffer));
-						sentSize += strlen(writeBuffer);
+						if(sentSize == filesize) return 0;
+						else
+						{
+							if(p<10) 	printf("Child Socket: %d.WriteBuffer: '%s', file: '%s' filesize: %ld, fptr: %lu\n\n", childsocket_no, writeBuffer, URL, filesize, ftell(fptr));
+							memset(writeBuffer, '\0', sizeof(writeBuffer));
+							//Receive a message from client
+							//printf("Child Socket: %d.fptr position before fread: %ld\n", childsocket_no, ftell(fptr));
+							int read = fread(writeBuffer, sizeof(char), 1024, fptr);
+							//printf("WriteBuffer: '%s', file: '%s' filesize: %ld\n", writeBuffer, URL, filesize);
+							write(client_sock, writeBuffer, read);
+							sentSize += read;
+							if(p<10) printf("Child Socket: %d.sentSize: '%lu', stringlength of WriteBuffer: '%lu'\n", childsocket_no, sentSize, strlen(writeBuffer));
+							p++;
+						}
 					}
-					printf("Child Socket: %d. EOF. Sent Size: %d\n", childsocket_no, sentSize);
+					printf("Child Socket: %d. EOF. Sent Size: %lu\n", childsocket_no, sentSize);
 					fclose(fptr);				
 
 				}
 				else
 				{
 					int errsv = errno;
-					printf("File Pointer: '%p'\n",fptr);
-					printf("fopen failed. Error number: %d\n", errsv);
+					printf("Child Socket: %d.File Pointer: '%p'\n", childsocket_no,fptr);
+					printf("Child Socket: %d.fopen failed. Error number: %d\n", childsocket_no, errsv);
 				}
 			}
 			printf("Closing the child socket %d\n", childsocket_no);
